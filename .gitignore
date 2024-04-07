@@ -122,8 +122,8 @@ celerybeat.pid
 # Environments
 .env
 .venv
-.pdf_app
-pdf_app/
+.app
+app/
 env/
 venv/
 ENV/
@@ -139,7 +139,7 @@ venv.bak/
 
 # mkdocs documentation
 /site
-
+/credentials
 # mypy
 .mypy_cache/
 .dmypy.json

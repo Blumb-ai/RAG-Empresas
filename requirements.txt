@@ -1,4 +1,6 @@
 langchain
+langchain-openai
+langchain-community 
 streamlit
 pandas
 openai
@@ -6,6 +8,9 @@ llama-index
 jinja2
 pypdf2
 html2text==2020.1.16
-tiktoken==0.4.0
-faiss-cpu==1.7.4
+tiktoken
+faiss-cpu
 sentence-transformers
+google-api-python-client
+google-auth-httplib2 
+google-auth-oauthlib

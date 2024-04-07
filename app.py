@@ -3,14 +3,17 @@ import pandas as pd
 import streamlit as st 
 from PIL import Image
 from PyPDF2 import PdfReader
-
-from langchain.embeddings import OpenAIEmbeddings, SentenceTransformerEmbeddings
-from langchain.chat_models import ChatOpenAI
-from langchain.chains import ConversationalRetrievalChain, RetrievalQA
+import os
+import openai
+#from langchain.embeddings import OpenAIEmbeddings, SentenceTransformerEmbeddings
+from langchain_openai import ChatOpenAI
+from langchain.chains.conversational_retrieval.base import ConversationalRetrievalChain
 from langchain.memory import ConversationBufferWindowMemory
 from langchain.vectorstores import FAISS
 from langchain.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from driveReader import execute_drive_script_folders
+from langchain_community.embeddings import OpenAIEmbeddings, HuggingFaceEmbeddings
 
 home_privacy = "We value and respect your privacy. To safeguard your personal details, we utilize the hashed value of your OpenAI API Key, ensuring utmost confidentiality and anonymity. Your API key facilitates AI-driven features during your session and is never retained post-visit. You can confidently fine-tune your research, assured that your information remains protected and private."
 
@@ -24,7 +27,17 @@ st.set_page_config(
 
 # OPENAI_API_KEY = st.secrets["OPENAI_API_KEY"]
 st.sidebar.subheader("Setup")
-OPENAI_API_KEY = st.sidebar.text_input("Enter Your OpenAI API Key:", type="password")
+#OPENAI_API_KEY = st.sidebar.text_input("Enter Your OpenAI API Key:", type="password")
+
+if 'OPENAI_API_KEY' in os.environ:
+    print('SI, HAY UNA API KEY EN OS.ENVIRON')
+    print('Y ES ESTA', os.environ['OPENAI_API_KEY'])
+
+    client = openai.OpenAI(
+    #api_key=os.environ['OPENAI_API_KEY']
+    api_key=''
+)
+OPENAI_API_KEY = ''
 st.sidebar.markdown("Get your OpenAI API key [here](https://platform.openai.com/account/api-keys)")
 st.sidebar.divider()
 st.sidebar.subheader("Model Selection")
@@ -113,9 +126,9 @@ def get_pdf_text(pdf_docs):
     for pdf in pdf_docs:
         try:
             pdf_reader = PdfReader(pdf)
-        except (PdfReader.PdfReadError, PyPDF2.utils.PdfReadError) as e:
-            print(f"Failed to read {pdf}: {e}")
-            continue  # skip to next pdf document in case of read error
+        except Exception as e:  # Captura una excepción más general
+             print(f"Failed to read {pdf}: {e}")
+             continue  # skip to next pdf document in case of read error
 
         for page in pdf_reader.pages:
             page_text = page.extract_text()
@@ -124,6 +137,7 @@ def get_pdf_text(pdf_docs):
             else:
                 print(f"Failed to extract text from a page in {pdf}")
 
+    print('ESTE ES EL TEXTO DEL PDF', text)
     return text
 
 # Splits a given text into smaller chunks based on specified conditions
@@ -135,25 +149,37 @@ def get_text_chunks(text):
         length_function=len
     )
     chunks = text_splitter.split_text(text)
+    print('ESTOS SON CHUNKS', chunks)
     return chunks
 
 
 # Generates embeddings for given text chunks and creates a vector store using FAISS
 def get_vectorstore(text_chunks):
     # embeddings = OpenAIEmbeddings()
-    embeddings = SentenceTransformerEmbeddings(model_name='all-MiniLM-L6-v2')
+    embeddings = HuggingFaceEmbeddings(model_name='all-MiniLM-L6-v2')
     vectorstore = FAISS.from_texts(texts=text_chunks, embedding=embeddings)
+    print('ESTE ES VECTOR STORE', vectorstore)
     return vectorstore
 
 # Initializes a conversation chain with a given vector store
 def get_conversation_chain(vectorstore):
+    print('aqui comienza el problema')
     memory = ConversationBufferWindowMemory(memory_key='chat_history', return_message=True)
+    print('esto es memory--->', memory)
+    print('esto es model name--->', model_select)
+    print('esto es temperatura--->', temperature_input)
+
+    
+
     conversation_chain = ConversationalRetrievalChain.from_llm(
         llm=ChatOpenAI(temperature=temperature_input, model_name=model_select),
         retriever=vectorstore.as_retriever(),
         get_chat_history=lambda h : h,
         memory=memory
     )
+
+    print('Luego de esto esta todo ok--->', conversation_chain)
+
     return conversation_chain
 
 
@@ -172,7 +198,6 @@ if user_uploads is not None:
 
             # Create FAISS Vector Store of PDF Docs
             vectorstore = get_vectorstore(text_chunks)
-
             # Create conversation chain
             st.session_state.conversation = get_conversation_chain(vectorstore)
             
@@ -191,12 +216,15 @@ for message in st.session_state['doc_messages']:
 
 # If user provides input, process it
 if user_query := st.chat_input("Enter your query here"):
+    print('AHORA LA QUERY', user_query)
+    print('ESTA ES OPENAIKEY QUE USA', OPENAI_API_KEY)
     if not OPENAI_API_KEY:
         st.info("Please add your OpenAI API key to continue.")
         st.stop()
     # Add user's message to chat history
     st.session_state['doc_messages'].append({"role": "user", "content": user_query})
     with st.chat_message("user"):
+        print('ENTRA AL MARKDOWN', user_query)
         st.markdown(user_query)
 
     with st.spinner("Generating response..."):
@@ -208,11 +236,18 @@ if user_query := st.chat_input("Enter your query here"):
                     "content": user_query
                 }
             ]
+            print('AL PARECER IS INICIALIZED', user_query)
+
+
             # Process the user's message using the conversation chain
+
             result = st.session_state.conversation({
                 "question": user_query, 
                 "chat_history": st.session_state['chat_history']})
+            print('SOBREVIVE A SESION_STATE.CONVERSATION¡')
+            
             response = result["answer"]
+            print('ESTO YA SERIA RESPONSE', response)
             # Append the user's question and AI's answer to chat_history
             st.session_state['chat_history'].append({
                 "role": "assistant",

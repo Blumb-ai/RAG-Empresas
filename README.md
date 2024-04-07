@@ -24,7 +24,7 @@ An intuitive AI-powered tool to extract and interact with textual data from PDF 
 
 1. Clone the repository to your local machine.
 2. Navigate to the project directory.
-3. Run the command `streamlit run pdf_app.py` to start the Streamlit app.
+3. Run the command `streamlit run app.py` to start the Streamlit app.
 4. Open the provided URL in your web browser.
 5. Follow the instructions within the app to upload PDF documents and interact with the conversational AI.
 
